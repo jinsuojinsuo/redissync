@@ -62,6 +62,7 @@ func (s *RedisSync) SetLogger(logger Logger) *RedisSync {
 
 // TryLock 尝试加锁，非阻塞，加锁失败直接返回
 // ttl 设置加锁时长,设置redis键的过期时间
+// 可以自动续期
 func (s *RedisSync) TryLock(key string, ttl time.Duration) (*Lock, error) {
 	//ttl不能小于1秒
 	if ttl < time.Second {
@@ -87,8 +88,8 @@ func (s *RedisSync) TryLock(key string, ttl time.Duration) (*Lock, error) {
 	return l, nil
 }
 
-// Lock 获取锁失败阻塞，直到获取成功为止，或遇到错误返回
-// 定时自动续期
+// Lock 阻塞获取锁，直到获取成功或遇到错误才返回
+// 可以自动续期
 func (s *RedisSync) Lock(key string) (*Lock, error) {
 	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                //存储时长秒 最少25秒 最大30秒
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
