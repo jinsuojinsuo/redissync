@@ -42,6 +42,11 @@ func (l *Lock) Unlock() error {
 	return nil
 }
 
+// GetToken 获取锁中存的值
+func (l *Lock) GetToken() string {
+	return l.rdl.Token()
+}
+
 type RedisSync struct {
 	redisLockClient *redislock.Client
 	logMode         bool //true开启日志 false关闭日志
