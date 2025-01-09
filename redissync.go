@@ -82,6 +82,11 @@ func (s *RedisSync) TryLock(key string, ttl time.Duration) (*Lock, error) {
 	if ttl < time.Second {
 		ttl = time.Second
 	}
+
+	if s.metadata == "" {
+		s.metadata = getParentCaller()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
 		RetryStrategy: redislock.NoRetry(), //不重试
