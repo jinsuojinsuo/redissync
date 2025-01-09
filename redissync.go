@@ -51,12 +51,18 @@ type RedisSync struct {
 	redisLockClient *redislock.Client
 	logMode         bool //true开启日志 false关闭日志
 	logger          Logger
+	metadata        string
 }
 
 func NewRedisSync(rdb *redis.Client) *RedisSync {
 	return &RedisSync{
 		redisLockClient: redislock.New(rdb),
 	}
+}
+
+func (s *RedisSync) SetMetadata(metadata string) *RedisSync {
+	s.metadata = metadata
+	return s
 }
 
 // SetLogger 设置日志
@@ -76,7 +82,7 @@ func (s *RedisSync) TryLock(key string, ttl time.Duration) (*Lock, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
 		RetryStrategy: redislock.NoRetry(), //不重试
-		Metadata:      "",
+		Metadata:      s.metadata,
 	})
 	if err != nil {
 		cancel()
