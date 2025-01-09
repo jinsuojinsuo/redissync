@@ -6,7 +6,10 @@ import (
 	"github.com/bsm/redislock"
 	"github.com/go-redis/redis/v8"
 	"math/rand"
+	"path"
+	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -108,10 +111,14 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	var err error
 	var rdlLock *redislock.Lock
 
+	if s.metadata == "" {
+		s.metadata = getParentCaller()
+	}
+
 	rdlLock, err = s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
 		//重试策略 默认最多只等待ttl秒或设置 context.WithTimeout 来控制尝试时长
 		RetryStrategy: redislock.ExponentialBackoff(time.Millisecond*100, time.Second*10), //指数退避算法(最小间隔时间，最大间隔时间)
-		Metadata:      "",
+		Metadata:      s.metadata,
 	})
 	if err != nil {
 		cancel()
@@ -164,4 +171,32 @@ func (s *RedisSync) println(v ...any) {
 	if s.logger != nil {
 		s.logger.Println(v...)
 	}
+}
+
+// GetParentCaller 获取父级调用者所在行号
+func getParentCaller(dirLevel ...int) string {
+	s := 3 //默认为父级调用者
+	if len(dirLevel) > 0 {
+		s = dirLevel[0]
+	}
+	_, file, line, ok := runtime.Caller(2)
+	if ok == true {
+		return fmt.Sprintf("%v:%v", pathRetainRight(file, s), line)
+	} else {
+		return ""
+	}
+}
+
+// PathRetainRight 保留n级目录
+func pathRetainRight(pathStr string, n int) string {
+	rt := ""
+	for i := 0; i < n; i++ {
+		b := path.Base(pathStr)
+		if b == "." {
+			break
+		}
+		rt = b + "/" + rt
+		pathStr = path.Dir(pathStr)
+	}
+	return strings.Trim(rt, "/")
 }
