@@ -42,8 +42,8 @@ func (l *Lock) Unlock() error {
 	return nil
 }
 
-// GetToken 获取锁中存的值
-func (l *Lock) GetToken() string {
+// Token 获取锁中存的值
+func (l *Lock) Token() string {
 	return l.rdl.Token()
 }
 
