@@ -26,12 +26,13 @@ type Logger interface {
 }
 
 type Lock struct {
-	rdl    *redislock.Lock
-	ctx    context.Context
-	cancel context.CancelFunc //取消函数
-	key    string             //加锁的key
-	ttl    time.Duration      //redis中的键保存时长
-	logger Logger             //用于记录错误日志
+	rdl      *redislock.Lock
+	ctx      context.Context
+	cancel   context.CancelFunc //取消函数
+	key      string             //加锁的key
+	ttl      time.Duration      //redis中的键保存时长
+	logger   Logger             //用于记录错误日志
+	metadata string
 }
 
 // Unlock 解锁
@@ -54,7 +55,6 @@ type RedisSync struct {
 	redisLockClient *redislock.Client
 	logMode         bool //true开启日志 false关闭日志
 	logger          Logger
-	metadata        string
 }
 
 func NewRedisSync(rdb *redis.Client) *RedisSync {
@@ -63,10 +63,10 @@ func NewRedisSync(rdb *redis.Client) *RedisSync {
 	}
 }
 
-func (s *RedisSync) SetMetadata(metadata string) *RedisSync {
-	s.metadata = metadata
-	return s
-}
+//func (s *RedisSync) SetMetadata(metadata string) *RedisSync {
+//	s.metadata = metadata
+//	return s
+//}
 
 // SetLogger 设置日志
 func (s *RedisSync) SetLogger(logger Logger) *RedisSync {
@@ -83,25 +83,24 @@ func (s *RedisSync) TryLock(key string, ttl time.Duration) (*Lock, error) {
 		ttl = time.Second
 	}
 
-	if s.metadata == "" {
-		s.metadata = getParentCaller()
-	}
+	metadata := getParentCaller()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
 		RetryStrategy: redislock.NoRetry(), //不重试
-		Metadata:      s.metadata,
+		Metadata:      metadata,
 	})
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 	l := &Lock{
-		rdl:    rdlLock,
-		ctx:    ctx,
-		key:    key,
-		cancel: cancel,
-		ttl:    ttl,
+		rdl:      rdlLock,
+		ctx:      ctx,
+		key:      key,
+		cancel:   cancel,
+		ttl:      ttl,
+		metadata: metadata,
 	}
 	s.renewExpirationScheduler(l) //自动续期程序
 	return l, nil
@@ -116,14 +115,12 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	var err error
 	var rdlLock *redislock.Lock
 
-	if s.metadata == "" {
-		s.metadata = getParentCaller()
-	}
+	metadata := getParentCaller()
 
 	rdlLock, err = s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
 		//重试策略 默认最多只等待ttl秒或设置 context.WithTimeout 来控制尝试时长
 		RetryStrategy: redislock.ExponentialBackoff(time.Millisecond*100, time.Second*10), //指数退避算法(最小间隔时间，最大间隔时间)
-		Metadata:      s.metadata,
+		Metadata:      metadata,
 	})
 	if err != nil {
 		cancel()
@@ -131,11 +128,12 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	}
 
 	l := &Lock{
-		rdl:    rdlLock,
-		ctx:    ctx,
-		key:    key,
-		cancel: cancel,
-		ttl:    ttl,
+		rdl:      rdlLock,
+		ctx:      ctx,
+		key:      key,
+		cancel:   cancel,
+		ttl:      ttl,
+		metadata: metadata,
 	}
 	s.renewExpirationScheduler(l) //自动续期程序
 	return l, nil
