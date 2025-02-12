@@ -4,8 +4,6 @@
 
 基于 redislock,go-redis 进行了二次封装，增肌自动续期功能
 
-
-
 二、依赖
 
 ```
@@ -13,15 +11,17 @@
 "github.com/go-redis/redis/v8"
 ```
 
-
-
 三、安装
 
-```
+```text
+纯redis锁
 go get github.com/jinsuojinsuo/redissync 
 ```
 
-
+```text
+本地锁与redis锁相结合
+go get github.com/jinsuojinsuo/redissync/v2
+```
 
 四、示例
 
