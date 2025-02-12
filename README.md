@@ -17,10 +17,15 @@
 
 三、安装
 
-```
+```text
+纯redis锁
 go get github.com/jinsuojinsuo/redissync 
 ```
 
+```text
+本地锁与redis锁相结合
+go get github.com/jinsuojinsuo/redissync/v2
+```
 
 
 四、示例
