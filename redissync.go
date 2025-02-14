@@ -31,8 +31,14 @@ func NewRedisSync(rdb *redis.Client) *RedisSync {
 	}
 }
 
-func (s *RedisSync) GetM() map[string]*t1 {
-	return s.m
+func (s *RedisSync) GetM() []string {
+	s.lock.Lock()
+	s.lock.Unlock()
+	list := []string{}
+	for k, _ := range s.m {
+		list = append(list, k)
+	}
+	return list
 }
 
 // 日志打印
@@ -56,17 +62,19 @@ type t1 struct {
 // Lock 阻塞获取锁，直到获取成功或遇到错误才返回
 // 可以自动续期
 func (s *RedisSync) Lock(key string) (*Lock, error) {
+	t1Obj := &t1{}
 	s.lock.Lock()
 	if _, ok := s.m[key]; ok == false {
 		s.m[key] = &t1{ch: make(chan struct{}, 1), num: atomic.Int64{}}
 	}
-	s.m[key].num.Add(1)
+	t1Obj = s.m[key]
+	t1Obj.num.Add(1)
 	s.lock.Unlock()
 
 	metadata := getParentCaller()
 
 	s.println(metadata, "阻塞等待1")
-	s.m[key].ch <- struct{}{}
+	t1Obj.ch <- struct{}{}
 	s.println(metadata, "阻塞等待2")
 
 	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                //存储时长秒 最少25秒 最大30秒
@@ -82,7 +90,7 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 		return nil, err
 	}
 
-	s.println(metadata, "加锁成功", s.m)
+	s.println(metadata, "加锁成功")
 
 	l := &Lock{
 		redisSync: s,
