@@ -2,7 +2,6 @@ package redissync
 
 import (
 	"context"
-	"fmt"
 	"github.com/bsm/redislock"
 	"github.com/go-redis/redis/v8"
 	"math/rand"
@@ -13,7 +12,8 @@ import (
 )
 
 type Logger interface {
-	Println(v ...any)
+	Info(format string, v ...any)  //info日志
+	Error(format string, v ...any) //错误日志
 }
 
 type RedisSync struct {
@@ -42,9 +42,15 @@ func (s *RedisSync) GetM() []string {
 }
 
 // 日志打印
-func (s *RedisSync) println(v ...any) {
+func (s *RedisSync) error(format string, v ...any) {
 	if s.logger != nil {
-		s.logger.Println(v...)
+		s.logger.Error(format, v...)
+	}
+}
+
+func (s *RedisSync) info(format string, v ...any) {
+	if s.logger != nil {
+		s.logger.Info(format, v...)
 	}
 }
 
@@ -73,11 +79,11 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 
 	metadata := getParentCaller()
 
-	s.println(metadata, "阻塞等待1")
+	s.info("阻塞等待1 %s", metadata)
 	t1Obj.ch <- struct{}{}
-	s.println(metadata, "阻塞等待2")
+	s.info("阻塞等待2 %s", metadata)
 
-	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                //存储时长秒 最少25秒 最大30秒
+	ttl := time.Second * time.Duration(rand.Intn(15)+20)                                //存储时长秒 最少25秒 最大30秒
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
 
 	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
@@ -90,7 +96,7 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 		return nil, err
 	}
 
-	s.println(metadata, "加锁成功")
+	s.info("加锁成功 %s", metadata)
 
 	l := &Lock{
 		redisSync: s,
@@ -110,7 +116,7 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				s.println(fmt.Sprintf("锁续期失败: %+v %+v", l.key, debug.Stack()))
+				s.error("锁续期失败: %+v %+v", l.key, debug.Stack())
 			}
 		}()
 
@@ -119,16 +125,16 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 			time.Sleep(l.ttl / 3) //阻塞存储时长的2分之一
 			select {
 			case <-l.ctx.Done():
-				s.println(fmt.Sprintf("锁续期已经解锁: %+v", l.key))
+				s.info("锁续期已经解锁: %+v", l.key)
 				break For //已经解锁 跳出for循环
 			default:
 				if err := l.rdl.Refresh(l.ctx, l.ttl, nil); err == redislock.ErrNotObtained {
-					s.println(fmt.Sprintf("锁续期失败键不存在: %+v %+v", l.key, err))
+					s.error("锁续期失败键不存在: %+v %+v", l.key, err)
 					break For
 				} else if err != nil {
-					s.println(fmt.Sprintf("锁续期失败: %+v %+v", l.key, err))
+					s.error("锁续期失败: %+v %+v", l.key, err)
 				} else {
-					s.println(fmt.Sprintf("锁续期成功: %+v", l.key))
+					s.info("锁续期成功: %+v", l.key)
 				}
 			}
 		}
