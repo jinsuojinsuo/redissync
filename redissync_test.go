@@ -7,15 +7,26 @@ import (
 	"time"
 )
 
+type Loger struct {
+}
+
+func (s Loger) Info(format string, v ...any) {
+	log.Printf(format, v...)
+}
+
+func (s Loger) Error(format string, v ...any) {
+	log.Printf(format, v...)
+}
+
 func TestRedisSync_Lock(t *testing.T) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6387",
+		Addr:     "127.0.0.1:6379",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 
-	RedisSync := NewRedisSync(rdb).SetLogger(log.Default())
+	RedisSync := NewRedisSync(rdb).SetLogger(&Loger{})
 	syncLock(RedisSync)
 	//tryLock(RedisSync)
 
