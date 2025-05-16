@@ -2,6 +2,7 @@ package redissync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/bsm/redislock"
 	"time"
@@ -21,8 +22,10 @@ type Lock struct {
 // Unlock 解锁
 func (l *Lock) Unlock() error {
 	defer l.cancel()
-	if err := l.rdl.Release(l.ctx); err == redislock.ErrLockNotHeld {
-		return nil //未加锁不需要解锁
+	if err := l.rdl.Release(l.ctx); errors.Is(err, redislock.ErrLockNotHeld) {
+		l.redisSync.error("未加锁不需要解锁,有可能锁被手动删除 key:%s", l.key)
+		//未加锁不需要解锁
+		//此处不能直接return,因为 如果redis中的key被手动删除,value.ch 必须要释放，否则会死锁
 	} else if err != nil {
 		return err
 	}

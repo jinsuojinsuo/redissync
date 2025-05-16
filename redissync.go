@@ -84,7 +84,7 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	t1Obj.ch <- struct{}{}
 	s.info("阻塞等待2 key:%s metadata:%s", key, metadata)
 
-	ttl := time.Second * time.Duration(rand.Intn(15)+20)                                //存储时长秒 最少25秒 最大30秒
+	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                //存储时长秒 最少20秒 最大30秒
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
 
 	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{

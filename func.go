@@ -9,7 +9,7 @@ import (
 
 // GetParentCaller 获取父级调用者所在行号
 func getParentCaller(dirLevel ...int) string {
-	s := 3 //默认为父级调用者
+	s := 2 //默认为父级调用者
 	if len(dirLevel) > 0 {
 		s = dirLevel[0]
 	}
