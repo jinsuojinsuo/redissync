@@ -80,9 +80,9 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 
 	metadata := getParentCaller()
 
-	s.info("阻塞等待1 %s", metadata)
+	s.info("阻塞等待1 key:%s metadata:%s", key, metadata)
 	t1Obj.ch <- struct{}{}
-	s.info("阻塞等待2 %s", metadata)
+	s.info("阻塞等待2 key:%s metadata:%s", key, metadata)
 
 	ttl := time.Second * time.Duration(rand.Intn(15)+20)                                //存储时长秒 最少25秒 最大30秒
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
@@ -97,7 +97,7 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 		return nil, err
 	}
 
-	s.info("加锁成功 %s", metadata)
+	s.info("加锁成功 key:%s metadata:%s", key, metadata)
 
 	l := &Lock{
 		redisSync: s,
