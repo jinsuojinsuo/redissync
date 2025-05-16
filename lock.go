@@ -22,6 +22,14 @@ type Lock struct {
 // Unlock 解锁
 func (l *Lock) Unlock() error {
 	defer l.cancel()
+
+	//不管redis锁能不能解开,内存锁都一定要解开,因为redis锁解不开可以手动删除，内存锁解不开只能重启进程
+	//就算内存锁解了，redis锁没解，也可以做到手动删除redis锁，
+	//解除了内存锁只要redis锁没解，也不会造成并发执行，因为redis锁会阻塞等锁
+	if err := l.unlockMem(); err != nil {
+		return err
+	}
+
 	if err := l.rdl.Release(l.ctx); errors.Is(err, redislock.ErrLockNotHeld) {
 		l.redisSync.error("未加锁不需要解锁,有可能锁被手动删除 key:%s", l.key)
 		//未加锁不需要解锁
@@ -30,6 +38,11 @@ func (l *Lock) Unlock() error {
 		return err
 	}
 
+	return nil
+}
+
+// 解内存锁
+func (l *Lock) unlockMem() error {
 	l.redisSync.lock.Lock()
 	defer l.redisSync.lock.Unlock()
 	value, ok := l.redisSync.m[l.key] //获取
@@ -44,7 +57,6 @@ func (l *Lock) Unlock() error {
 	} else if num < 0 {
 		panic(fmt.Errorf("解锁异常2 %d", num))
 	}
-
 	return nil
 }
 

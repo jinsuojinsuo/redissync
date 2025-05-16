@@ -96,6 +96,6 @@ func syncLock(RedisSync *RedisSync, pid int, i int) {
 	}()
 
 	log.Printf("执行中pid:%d i:%d", pid, i)
-	time.Sleep(time.Second * 40)
+	time.Sleep(time.Millisecond)
 
 }
