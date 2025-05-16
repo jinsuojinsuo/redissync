@@ -2,6 +2,7 @@ package redissync
 
 import (
 	"context"
+	"errors"
 	"github.com/bsm/redislock"
 	"github.com/go-redis/redis/v8"
 	"math/rand"
@@ -116,7 +117,7 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				s.error("锁续期失败: %+v %+v", l.key, debug.Stack())
+				s.error("锁续期失败 key:%s stack:%s", l.key, debug.Stack())
 			}
 		}()
 
@@ -125,16 +126,16 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 			time.Sleep(l.ttl / 3) //阻塞存储时长的2分之一
 			select {
 			case <-l.ctx.Done():
-				s.info("锁续期已经解锁: %+v", l.key)
+				s.info("锁续期已经解锁: %s", l.key)
 				break For //已经解锁 跳出for循环
 			default:
-				if err := l.rdl.Refresh(l.ctx, l.ttl, nil); err == redislock.ErrNotObtained {
-					s.error("锁续期失败键不存在: %+v %+v", l.key, err)
+				if err := l.rdl.Refresh(l.ctx, l.ttl, nil); errors.Is(err, redislock.ErrNotObtained) {
+					s.error("锁续期失败键不存在 key:%s err:%+v", l.key)
 					break For
 				} else if err != nil {
-					s.error("锁续期失败: %+v %+v", l.key, err)
+					s.error("锁续期失败: key:%s err:%+v", l.key, err)
 				} else {
-					s.info("锁续期成功: %+v", l.key)
+					s.info("锁续期成功 key:%s", l.key)
 				}
 			}
 		}
