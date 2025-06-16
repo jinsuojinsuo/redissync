@@ -3,9 +3,11 @@ package redissync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/bsm/redislock"
 	"github.com/go-redis/redis/v8"
 	"math/rand"
+	"os"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -78,7 +80,8 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	t1Obj.num.Add(1)
 	s.lock.Unlock()
 
-	metadata := getParentCaller()
+	Hostname, _ := os.Hostname()
+	metadata := fmt.Sprintf("%s_%s", Hostname, getParentCaller())
 
 	s.info("阻塞等待1 key:%s metadata:%s", key, metadata)
 	t1Obj.ch <- struct{}{}
