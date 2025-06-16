@@ -13,7 +13,7 @@ func getParentCaller(dirLevel ...int) string {
 	if len(dirLevel) > 0 {
 		s = dirLevel[0]
 	}
-	_, file, line, ok := runtime.Caller(3)
+	_, file, line, ok := runtime.Caller(2)
 	if ok == true {
 		return fmt.Sprintf("%v:%v", pathRetainRight(file, s), line)
 	} else {
