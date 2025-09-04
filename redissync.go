@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bsm/redislock"
-	"github.com/go-redis/redis/v8"
 	"math/rand"
 	"os"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/bsm/redislock"
+	"github.com/go-redis/redis/v8"
 )
 
 type Logger interface {
@@ -97,6 +98,8 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	})
 	if err != nil {
 		cancel() //获取锁失败 走到这一般是redis重启之类的
+		<-t1Obj.ch
+		t1Obj.num.Add(-1)
 		return nil, err
 	}
 
