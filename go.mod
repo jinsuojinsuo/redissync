@@ -1,10 +1,11 @@
 module github.com/jinsuojinsuo/redissync/v2
 
-go 1.19
+go 1.18.0
 
 require (
 	github.com/bsm/redislock v0.7.2
 	github.com/go-redis/redis/v8 v8.11.5
+	golang.org/x/sync v0.11.0
 )
 
 require (

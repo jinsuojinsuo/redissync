@@ -69,9 +69,17 @@ type t1 struct {
 	num atomic.Int64
 }
 
-// Lock 阻塞获取锁，直到获取成功或遇到错误才返回
-// 可以自动续期
+// LockContext ctx加超时时间,等锁超时,取消等锁
+func (s *RedisSync) LockContext(ctx context.Context, key string) (*Lock, error) {
+	return s.internalLock(ctx, key)
+}
+
+// Lock 阻塞获取锁，直到获取成功或遇到错误才返回，可以自动续期
 func (s *RedisSync) Lock(key string) (*Lock, error) {
+	return s.internalLock(context.Background(), key)
+}
+
+func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error) {
 	t1Obj := &t1{}
 	s.lock.Lock()
 	if _, ok := s.m[key]; ok == false {
@@ -85,13 +93,19 @@ func (s *RedisSync) Lock(key string) (*Lock, error) {
 	metadata := fmt.Sprintf("%s_%s", Hostname, getParentCaller())
 
 	s.info("阻塞等待1 key:%s metadata:%s", key, metadata)
-	t1Obj.ch <- struct{}{}
+	select {
+	case t1Obj.ch <- struct{}{}:
+		//继续执行
+	case <-ctx.Done():
+		s.info("取消加锁 key:%s metadata:%s", key, metadata)
+		return nil, ctx.Err() //取消加锁
+	}
 	s.info("阻塞等待2 key:%s metadata:%s", key, metadata)
 
 	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                            //存储时长秒 最少20秒 最大30秒
 	UnLockCtx, UnLockCancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
 
-	rdlLock, err := s.redisLockClient.Obtain(UnLockCtx, key, ttl, &redislock.Options{
+	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
 		//重试策略 默认最多只等待ttl秒或设置 context.WithTimeout 来控制尝试时长
 		RetryStrategy: redislock.LinearBackoff(time.Millisecond * 50), //100毫秒重试1次
 		Metadata:      metadata,
