@@ -9,19 +9,19 @@ import (
 )
 
 type Lock struct {
-	redisSync *RedisSync
-	rdl       *redislock.Lock
-	ctx       context.Context
-	cancel    context.CancelFunc //取消函数
-	key       string             //加锁的key
-	ttl       time.Duration      //redis中的键保存时长
-	logger    Logger             //用于记录错误日志
-	metadata  string
+	redisSync    *RedisSync
+	rdl          *redislock.Lock
+	UnLockCtx    context.Context
+	UnLockCancel context.CancelFunc //取消函数
+	key          string             //加锁的key
+	ttl          time.Duration      //redis中的键保存时长
+	logger       Logger             //用于记录错误日志
+	metadata     string
 }
 
 // Unlock 解锁
 func (l *Lock) Unlock() error {
-	defer l.cancel()
+	defer l.UnLockCancel()
 
 	//不管redis锁能不能解开,内存锁都一定要解开,因为redis锁解不开可以手动删除，内存锁解不开只能重启进程
 	//就算内存锁解了，redis锁没解，也可以做到手动删除redis锁，
@@ -30,7 +30,7 @@ func (l *Lock) Unlock() error {
 		return err
 	}
 
-	if err := l.rdl.Release(l.ctx); errors.Is(err, redislock.ErrLockNotHeld) {
+	if err := l.rdl.Release(l.UnLockCtx); errors.Is(err, redislock.ErrLockNotHeld) {
 		l.redisSync.error("未加锁不需要解锁,有可能锁被手动删除 key:%s", l.key)
 		//未加锁不需要解锁
 		//此处不能直接return,因为 如果redis中的key被手动删除,value.ch 必须要释放，否则会死锁
