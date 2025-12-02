@@ -69,9 +69,46 @@ func TestRedisSync_Lock(t *testing.T) {
 	//Obtain(rdb)
 
 	//syncLockContext(RedisSync)
-	syncLock(RedisSync)
+	//syncLock(RedisSync)
+	syncLockContext4(RedisSync)
 
 	log.Println(RedisSync)
+}
+
+func syncLockContext4(RedisSync *RedisSync) {
+	wg := sync.WaitGroup{}
+	const key = "lock:test3"
+	wg.Go(func() {
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
+		lockContext, err := RedisSync.LockContext(ctx, key)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, redislock.ErrNotObtained) {
+				log.Printf("超时取消加锁或尝试次数到上限 %+v", err) //超时取消也有可能会报错ErrNotObtained这点有些鸡肋啊 v0.9.2 已改版，但把redis升级到了v9我用不了啊
+				return
+			} else {
+				log.Printf("加锁失败 %+v", err)
+				return
+			}
+		}
+		defer lockContext.Unlock()
+		log.Println("加锁成功")
+		time.Sleep(time.Second * 10)
+	})
+	wg.Go(func() {
+		time.Sleep(time.Millisecond * 100)
+		lockContext, err := RedisSync.Lock(key)
+		if err != nil {
+			log.Printf("加锁失败 %+v", err)
+			return
+		}
+		defer lockContext.Unlock()
+		log.Println("加锁成功")
+		time.Sleep(time.Second * 3)
+
+	})
+	wg.Wait()
 }
 
 func Obtain(rdb *redis.Client) {
