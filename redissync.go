@@ -105,7 +105,12 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                            //存储时长秒 最少20秒 最大30秒
 	UnLockCtx, UnLockCancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
 
-	rdlLock, err := s.redisLockClient.Obtain(ctx, key, ttl, &redislock.Options{
+	ctx2 := ctx
+	if _, ok := ctx.Deadline(); !ok {
+		ctx2 = UnLockCtx
+	}
+
+	rdlLock, err := s.redisLockClient.Obtain(ctx2, key, ttl, &redislock.Options{
 		//重试策略 默认最多只等待ttl秒或设置 context.WithTimeout 来控制尝试时长
 		RetryStrategy: redislock.LinearBackoff(time.Millisecond * 50), //100毫秒重试1次
 		Metadata:      metadata,

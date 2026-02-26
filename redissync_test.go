@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"github.com/bsm/redislock"
 	"github.com/go-redis/redis/v8"
+	"golang.org/x/sync/errgroup"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"sync"
 	"testing"
@@ -48,22 +47,27 @@ func TestRedisSync_Lock(t *testing.T) {
 		DB:       1,  // use default DB
 	})
 
-	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%d", port), http.DefaultServeMux); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	//go func() {
+	//	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), http.DefaultServeMux); err != nil {
+	//		log.Fatal(err)
+	//	}
+	//}()
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatal("redis连接失败", err)
+	} else {
+		log.Printf("redis链接成功")
+	}
 
-	go func() {
-		for i := 0; ; i++ {
-			if err := rdb.Ping(context.Background()).Err(); err != nil {
-				log.Printf("ping失败 %+v", err)
-			} else {
-				log.Printf("ping成功")
-				time.Sleep(time.Second * 5)
-			}
-		}
-	}()
+	//go func() {
+	//	for i := 0; ; i++ {
+	//		if err := rdb.Ping(context.Background()).Err(); err != nil {
+	//			log.Printf("ping失败 %+v", err)
+	//		} else {
+	//			log.Printf("ping成功")
+	//			time.Sleep(time.Second * 5)
+	//		}
+	//	}
+	//}()
 
 	RedisSync := NewRedisSync(rdb).SetLogger(&Loger{})
 	//Obtain(rdb)
@@ -71,8 +75,30 @@ func TestRedisSync_Lock(t *testing.T) {
 	//syncLockContext(RedisSync)
 	//syncLock(RedisSync)
 	syncLockContext4(RedisSync)
+	//t2(RedisSync)
 
 	log.Println(RedisSync)
+}
+
+func t2(RedisSync *RedisSync) {
+	key := "test_lock"
+	wg := errgroup.Group{}
+	wg.Go(func() error {
+		lock, err := RedisSync.Lock(key)
+		if err != nil {
+			panic(err)
+		}
+		defer func() {
+			lock.Unlock()
+			log.Println("解锁成功")
+		}()
+		log.Println("加锁成功")
+		time.Sleep(time.Second * 40)
+
+		return nil
+	})
+	wg.Wait()
+
 }
 
 func syncLockContext4(RedisSync *RedisSync) {
