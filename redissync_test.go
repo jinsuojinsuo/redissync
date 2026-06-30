@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"github.com/bsm/redislock"
-	"github.com/go-redis/redis/v8"
-	"golang.org/x/sync/errgroup"
 	"log"
 	_ "net/http/pprof"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/bsm/redislock"
+	"github.com/go-redis/redis/v8"
+	"golang.org/x/sync/errgroup"
 )
 
 type Loger struct {
@@ -74,8 +75,8 @@ func TestRedisSync_Lock(t *testing.T) {
 
 	//syncLockContext(RedisSync)
 	//syncLock(RedisSync)
-	syncLockContext4(RedisSync)
-	//t2(RedisSync)
+	//syncLockContext4(RedisSync)
+	t2(RedisSync)
 
 	log.Println(RedisSync)
 }

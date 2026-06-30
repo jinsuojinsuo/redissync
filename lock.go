@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bsm/redislock"
 	"time"
+
+	"github.com/bsm/redislock"
 )
 
 type Lock struct {
@@ -20,15 +21,17 @@ type Lock struct {
 }
 
 // Unlock 解锁
-func (l *Lock) Unlock() error {
+func (l *Lock) Unlock() (err error) {
 	defer l.UnLockCancel()
 
-	//不管redis锁能不能解开,内存锁都一定要解开,因为redis锁解不开可以手动删除，内存锁解不开只能重启进程
-	//就算内存锁解了，redis锁没解，也可以做到手动删除redis锁，
-	//解除了内存锁只要redis锁没解，也不会造成并发执行，因为redis锁会阻塞等锁
-	if err := l.unlockMem(); err != nil {
-		return err
-	}
+	defer func() {
+		//不管redis锁能不能解开,内存锁都一定要解开,因为redis锁解不开可以手动删除，内存锁解不开只能重启进程
+		//就算内存锁解了，redis锁没解，也可以做到手动删除redis锁，
+		//解除了内存锁只要redis锁没解，也不会造成并发执行，因为redis锁会阻塞等锁
+		if err2 := l.unlockMem(); err2 != nil {
+			err = errors.Join(err, err2)
+		}
+	}()
 
 	if err := l.rdl.Release(l.UnLockCtx); errors.Is(err, redislock.ErrLockNotHeld) {
 		l.redisSync.error("未加锁不需要解锁,有可能锁被手动删除 key:%s", l.key)
@@ -50,7 +53,11 @@ func (l *Lock) unlockMem() error {
 		return fmt.Errorf("解锁异常1")
 	}
 
-	<-value.ch //通知下一个线程获取锁
+	select {
+	case <-value.ch: //通知下一个线程获取锁
+	default:
+		//无需处理
+	}
 	num := value.num.Add(-1)
 	if num == 0 {
 		delete(l.redisSync.m, l.key)

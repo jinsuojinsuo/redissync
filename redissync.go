@@ -37,7 +37,7 @@ func NewRedisSync(rdb *redis.Client) *RedisSync {
 
 func (s *RedisSync) GetM() []string {
 	s.lock.Lock()
-	s.lock.Unlock()
+	defer s.lock.Unlock()
 	list := []string{}
 	for k, _ := range s.m {
 		list = append(list, k)
@@ -92,11 +92,23 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 	Hostname, _ := os.Hostname()
 	metadata := fmt.Sprintf("%s_%s", Hostname, getParentCaller())
 
+	clearNumMapFunc := func() {
+		s.lock.Lock()
+		defer s.lock.Unlock()
+		num := t1Obj.num.Add(-1)
+		if num == 0 {
+			delete(s.m, key)
+		} else if num < 0 {
+			panic(fmt.Errorf("解锁异常2 %d", num))
+		}
+	}
+
 	s.info("阻塞等待1 key:%s metadata:%s", key, metadata)
 	select {
 	case t1Obj.ch <- struct{}{}:
 		//继续执行
 	case <-ctx.Done():
+		clearNumMapFunc()
 		s.info("取消加锁 key:%s metadata:%s", key, metadata)
 		return nil, ctx.Err() //取消加锁
 	}
@@ -118,7 +130,7 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 	if err != nil {
 		UnLockCancel() //获取锁失败 走到这一般是redis重启之类的
 		<-t1Obj.ch
-		t1Obj.num.Add(-1)
+		clearNumMapFunc()
 		return nil, err
 	}
 
