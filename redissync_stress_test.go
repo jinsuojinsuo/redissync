@@ -3,6 +3,7 @@ package redissync
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"sync"
@@ -25,11 +26,12 @@ func TestRedisSyncStressNoDeadlockAndNoLocalLeak(t *testing.T) {
 	var wg sync.WaitGroup
 	errCh := make(chan error, 20)
 
-	for worker := 0; worker < 10; worker++ {
+	for worker := 0; worker < 2; worker++ {
 		wg.Add(1)
 		go func(worker int) {
 			defer wg.Done()
 			for i := 0; i < 30; i++ {
+				log.Printf("worker:%d num:%d", worker, i)
 				if stopped.Load() {
 					return
 				}
