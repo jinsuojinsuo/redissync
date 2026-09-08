@@ -39,7 +39,7 @@ func getExternalCaller() string {
 	for {
 		frame, more := frames.Next()
 		if strings.HasPrefix(frame.Function, packageName+".") == false || strings.HasSuffix(frame.File, "_test.go") {
-			return fmt.Sprintf("%v:%v", pathRetainRight(frame.File, 3), frame.Line)
+			return fmt.Sprintf("%v:%v", pathRetainRight(frame.File, 2), frame.Line)
 		}
 		if more == false {
 			break

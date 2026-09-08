@@ -170,7 +170,7 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 			time.Sleep(l.ttl / 3) //阻塞存储时长的2分之一
 			select {
 			case <-l.UnLockCtx.Done():
-				s.info("锁续期已经解锁 key:%s caller:%s", l.key, l.metadata)
+				s.debug("锁续期已经解锁 key:%s caller:%s", l.key, l.metadata)
 				break For //已经解锁 跳出for循环
 			default:
 				if err := l.rdl.Refresh(l.UnLockCtx, l.ttl, nil); errors.Is(err, redislock.ErrNotObtained) {

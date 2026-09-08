@@ -16,5 +16,5 @@ func TestGetExternalCallerFromPackageTest(t *testing.T) {
 func getExternalCallerFromTestHelper() (string, string) {
 	_, file, line, _ := runtime.Caller(0)
 	caller := getExternalCaller()
-	return caller, fmt.Sprintf("%s:%d", pathRetainRight(file, 3), line+1)
+	return caller, fmt.Sprintf("%s:%d", pathRetainRight(file, 2), line+1)
 }
