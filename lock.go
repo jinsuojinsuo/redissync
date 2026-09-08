@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/bsm/redislock"
@@ -19,10 +20,14 @@ type Lock struct {
 	logger       Logger             //用于记录错误日志
 	metadata     string
 	lockedAt     time.Time
+	unlocked     atomic.Bool
 }
 
 // Unlock 解锁
 func (l *Lock) Unlock() (err error) {
+	if l.unlocked.CompareAndSwap(false, true) == false {
+		return fmt.Errorf("重复解锁 key:%s caller:%s", l.key, l.metadata)
+	}
 	defer l.UnLockCancel()
 
 	defer func() {
