@@ -175,7 +175,13 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 				s.debug("锁续期已经解锁 key:%s caller:%s", l.key, l.metadata)
 				break For //已经解锁 跳出for循环
 			default:
-				if err := l.rdl.Refresh(l.UnLockCtx, l.ttl, nil); errors.Is(err, redislock.ErrNotObtained) {
+				// 单轮续期最多等待5秒：每秒重试一次，最多重试5次，避免Redis短暂异常直接导致锁过期。
+				renewCtx, renewCancel := context.WithTimeout(l.UnLockCtx, 5*time.Second)
+				err := l.rdl.Refresh(renewCtx, l.ttl, &redislock.Options{
+					RetryStrategy: redislock.LimitRetry(redislock.LinearBackoff(time.Second), 5),
+				})
+				renewCancel()
+				if errors.Is(err, redislock.ErrNotObtained) {
 					s.error("锁续期失败键不存在 key:%s caller:%s err:%+v", l.key, l.metadata, err)
 					break For
 				} else if err != nil {
