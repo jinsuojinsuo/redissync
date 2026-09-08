@@ -55,7 +55,7 @@ func TestRedisSyncRenewAfterRedisRestart(t *testing.T) {
 	}
 	waitRedisAvailable(t, rdb)
 
-	waitRestartLog(t, logger, "锁续期失败键不存在")
+	waitRestartLog(t, logger, "锁续期成功 key:")
 	if err := lock.Unlock(); err != nil {
 		t.Logf("unlock after Redis restart: %v", err)
 	}

@@ -68,6 +68,18 @@ func (errorRedisClient) EvalSha(ctx context.Context, sha1 string, keys []string,
 	return cmd
 }
 
+func (errorRedisClient) EvalRO(ctx context.Context, script string, keys []string, args ...interface{}) *redis.Cmd {
+	cmd := redis.NewCmd(ctx)
+	cmd.SetErr(errors.New("forced redis EvalRO error"))
+	return cmd
+}
+
+func (errorRedisClient) EvalShaRO(ctx context.Context, sha1 string, keys []string, args ...interface{}) *redis.Cmd {
+	cmd := redis.NewCmd(ctx)
+	cmd.SetErr(errors.New("forced redis EvalShaRO error"))
+	return cmd
+}
+
 func (errorRedisClient) ScriptExists(ctx context.Context, scripts ...string) *redis.BoolSliceCmd {
 	cmd := redis.NewBoolSliceCmd(ctx)
 	cmd.SetErr(errors.New("forced redis ScriptExists error"))
