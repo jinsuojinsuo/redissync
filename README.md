@@ -8,7 +8,7 @@
 
 ```
 "github.com/bsm/redislock"
-"github.com/go-redis/redis/v8"
+"github.com/redis/go-redis/v9"
 ```
 
 三、安装
@@ -29,7 +29,7 @@ go get github.com/jinsuojinsuo/redissync/v2
 package main
 
 import (
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/jinsuojinsuo/redissync"
 	"log"
 	"time"
