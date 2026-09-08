@@ -18,6 +18,7 @@ import (
 type Logger interface {
 	Info(format string, v ...any)  //info日志
 	Error(format string, v ...any) //错误日志
+	Debug(format string, v ...any) //debug日志
 }
 
 type RedisSync struct {
@@ -58,6 +59,12 @@ func (s *RedisSync) info(format string, v ...any) {
 	}
 }
 
+func (s *RedisSync) debug(format string, v ...any) {
+	if s.logger != nil {
+		s.logger.Debug(format, v...)
+	}
+}
+
 // SetLogger 设置日志
 func (s *RedisSync) SetLogger(logger Logger) *RedisSync {
 	s.logger = logger
@@ -90,7 +97,7 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 	s.lock.Unlock()
 
 	Hostname, _ := os.Hostname()
-	metadata := fmt.Sprintf("%s_%s", Hostname, getParentCaller())
+	metadata := fmt.Sprintf("%s_%s", Hostname, getExternalCaller())
 
 	clearNumMapFunc := func() {
 		s.lock.Lock()
@@ -103,16 +110,16 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 		}
 	}
 
-	s.info("阻塞等待1 key:%s metadata:%s", key, metadata)
+	s.debug("阻塞等待1 key:%s caller:%s", key, metadata)
 	select {
 	case t1Obj.ch <- struct{}{}:
 		//继续执行
 	case <-ctx.Done():
 		clearNumMapFunc()
-		s.info("取消加锁 key:%s metadata:%s", key, metadata)
+		s.debug("取消加锁 key:%s caller:%s err:%+v", key, metadata, ctx.Err())
 		return nil, ctx.Err() //取消加锁
 	}
-	s.info("阻塞等待2 key:%s metadata:%s", key, metadata)
+	s.debug("阻塞等待2 key:%s caller:%s", key, metadata)
 
 	ttl := time.Second * time.Duration(rand.Intn(11)+20)                                            //存储时长秒 最少20秒 最大30秒
 	UnLockCtx, UnLockCancel := context.WithTimeout(context.Background(), time.Second*86400*365*100) //这里设置超时时间为100年,也就是必须获取到锁才返回，否则一直阻塞
@@ -133,8 +140,7 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 		clearNumMapFunc()
 		return nil, err
 	}
-
-	s.info("加锁成功 key:%s metadata:%s", key, metadata)
+	s.debug("加锁成功 key:%s caller:%s", key, metadata)
 
 	l := &Lock{
 		redisSync:    s,
@@ -144,6 +150,7 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 		UnLockCancel: UnLockCancel,
 		ttl:          ttl,
 		metadata:     metadata,
+		lockedAt:     time.Now(),
 	}
 	s.renewExpirationScheduler(l) //自动续期程序
 	return l, nil
@@ -154,7 +161,7 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				s.error("锁续期失败 key:%s stack:%s", l.key, debug.Stack())
+				s.error("锁续期失败 key:%s caller:%s panic:%+v stack:%s", l.key, l.metadata, r, debug.Stack())
 			}
 		}()
 
@@ -163,16 +170,16 @@ func (s *RedisSync) renewExpirationScheduler(l *Lock) {
 			time.Sleep(l.ttl / 3) //阻塞存储时长的2分之一
 			select {
 			case <-l.UnLockCtx.Done():
-				s.info("锁续期已经解锁: %s", l.key)
+				s.info("锁续期已经解锁 key:%s caller:%s", l.key, l.metadata)
 				break For //已经解锁 跳出for循环
 			default:
 				if err := l.rdl.Refresh(l.UnLockCtx, l.ttl, nil); errors.Is(err, redislock.ErrNotObtained) {
-					s.error("锁续期失败键不存在 key:%s err:%+v", l.key)
+					s.error("锁续期失败键不存在 key:%s caller:%s err:%+v", l.key, l.metadata, err)
 					break For
 				} else if err != nil {
-					s.error("锁续期失败: key:%s err:%+v", l.key, err)
+					s.error("锁续期失败 key:%s caller:%s err:%+v", l.key, l.metadata, err)
 				} else {
-					s.info("锁续期成功 key:%s", l.key)
+					s.info("锁续期成功 key:%s caller:%s 持锁时长:%s ttl:%s", l.key, l.metadata, time.Since(l.lockedAt), l.ttl)
 				}
 			}
 		}

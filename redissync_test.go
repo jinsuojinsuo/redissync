@@ -22,6 +22,10 @@ func (s Loger) Info(format string, v ...any) {
 	log.Printf(format, v...)
 }
 
+func (s Loger) Debug(format string, v ...any) {
+	log.Printf(format, v...)
+}
+
 func (s Loger) Error(format string, v ...any) {
 	log.Printf(format, v...)
 

@@ -18,6 +18,7 @@ type Lock struct {
 	ttl          time.Duration      //redis中的键保存时长
 	logger       Logger             //用于记录错误日志
 	metadata     string
+	lockedAt     time.Time
 }
 
 // Unlock 解锁
@@ -34,7 +35,7 @@ func (l *Lock) Unlock() (err error) {
 	}()
 
 	if err := l.rdl.Release(l.UnLockCtx); errors.Is(err, redislock.ErrLockNotHeld) {
-		l.redisSync.error("未加锁不需要解锁,有可能锁被手动删除 key:%s", l.key)
+		l.redisSync.error("未加锁不需要解锁,有可能锁被手动删除 key:%s caller:%s", l.key, l.metadata)
 		//未加锁不需要解锁
 		//此处不能直接return,因为 如果redis中的key被手动删除,value.ch 必须要释放，否则会死锁
 	} else if err != nil {
