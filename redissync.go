@@ -15,6 +15,8 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+const loggerPrefix = "[redissync]"
+
 type Logger interface {
 	Info(format string, v ...any)  //info日志
 	Error(format string, v ...any) //错误日志
@@ -49,19 +51,19 @@ func (s *RedisSync) GetM() []string {
 // 日志打印
 func (s *RedisSync) error(format string, v ...any) {
 	if s.logger != nil {
-		s.logger.Error(format, v...)
+		s.logger.Error(loggerPrefix+" "+format, v...)
 	}
 }
 
 func (s *RedisSync) info(format string, v ...any) {
 	if s.logger != nil {
-		s.logger.Info(format, v...)
+		s.logger.Info(loggerPrefix+" "+format, v...)
 	}
 }
 
 func (s *RedisSync) debug(format string, v ...any) {
 	if s.logger != nil {
-		s.logger.Debug(format, v...)
+		s.logger.Debug(loggerPrefix+" "+format, v...)
 	}
 }
 
