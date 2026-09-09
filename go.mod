@@ -1,4 +1,4 @@
-module github.com/jinsuojinsuo/redissync/v2
+module github.com/jinsuojinsuo/redissync/v3
 
 go 1.25
 
