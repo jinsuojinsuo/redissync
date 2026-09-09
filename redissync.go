@@ -142,7 +142,7 @@ func (s *RedisSync) internalLock(ctx context.Context, key string) (*Lock, error)
 		clearNumMapFunc()
 		return nil, err
 	}
-	s.info("加锁成功 key:%s caller:%s", key, metadata)
+	s.debug("加锁成功 key:%s caller:%s", key, metadata)
 
 	l := &Lock{
 		redisSync:    s,
