@@ -32,10 +32,11 @@ type RedisSync struct {
 }
 
 func NewRedisSync(rdb *redis.Client) *RedisSync {
-	return &RedisSync{
-		redisLockClient: redislock.New(rdb),
-		m:               map[string]*t1{},
+	s := &RedisSync{
+		m: map[string]*t1{},
 	}
+	s.redisLockClient = redislock.New(&obtainRedisClient{RedisClient: rdb, owner: s})
+	return s
 }
 
 func (s *RedisSync) GetM() []string {
